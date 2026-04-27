@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRI Calculator — Detection · Recognition · Identification</title>
+<style>
+/* ── DESIGN SYSTEM TOKENS ─────────────────────── */
+:root {
+  /* Neutrals */
+  --bg:      #0A0A0A;
+  --surface: #141413;
+  --si:      #1C1C1B;
+  --si2:     #242423;
+  --border:  rgba(255,255,255,0.08);
+  
+  /* Text */
+  --ton:     #FFFFFF;
+  --tmut:    rgba(255,255,255,0.65);
+  --tdim:    rgba(255,255,255,0.35);
+  --tp:      #DED6CB; /* Warm Parchment for primary data */
+  
+  /* Accents */
+  --acc:     #F36702;   /* Technical Orange */
+  --thm:     #00E5FF;   /* Cyber Cyan for Thermal */
+  --det:     #FF4D4D;
+  --rec:     #FFB300;
+  --idt:     #00E676;
+  
+  /* Layout */
+  --sw:      260px;
+  --hh:      52px;
+  --font:    'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --mono:    'JetBrains Mono', 'SF Mono', 'Courier New', monospace;
+  --track:   0.08em;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+html,body {
+  height:100%;
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--ton);
+  font-size:13px;
+  overflow:hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── UTILITIES ── */
+.caps { text-transform: uppercase; letter-spacing: var(--track); font-weight: 500; }
+.mono { font-family: var(--mono); }
+
+/* ── HEADER ── */
+header {
+  position:fixed; top:0; left:0; right:0; height:var(--hh); z-index:200;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; padding:0 20px;
+}
+.hdr-l { display:flex; flex-direction:column; }
+.hdr-title { color:var(--ton); font-size:15px; font-weight:600; letter-spacing:0.04em; text-transform: uppercase; }
+.hdr-sub { font-size:9px; letter-spacing:0.15em; text-transform:uppercase; color:var(--acc); margin-top:2px; font-weight: 500; }
+
+.hdr-r { display:flex; align-items:center; gap:12px; }
+.unit-strip { display:flex; background: rgba(0,0,0,0.2); border: 1px solid var(--border); padding: 2px; }
+.ubtn {
+  height:24px; padding:0 12px; border:none;
+  background:transparent; color:var(--tdim); font:10px/1 var(--font); letter-spacing:var(--track);
+  text-transform:uppercase; cursor:pointer; transition:all .2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ubtn.on { background:var(--si2); color:var(--ton); box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+.ubtn:hover:not(.on) { color:var(--ton); background: rgba(255,255,255,0.03); }
+
+/* ── SHELL ── */
+.shell { display:flex; margin-top:var(--hh); height:calc(100vh - var(--hh)); }
+
+/* ── SIDEBAR ── */
+.sb {
+  width:var(--sw); min-width:var(--sw); background:var(--surface);
+  border-right:1px solid var(--border);
+  overflow-y:auto; display:flex; flex-direction:column;
+}
+.sb::-webkit-scrollbar { width:4px; }
+.sb::-webkit-scrollbar-thumb { background:var(--si2); }
+
+.sbs { padding:16px 18px; border-bottom:1px solid var(--border); }
+
+.sbl { display:block; font-size:10px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:12px; }
+.sbl.rgb { color:var(--acc); }
+.sbl.thm { color:var(--thm); }
+.sbl.neu { color:var(--tmut); }
+
+/* camera section stripe */
+.cam-stripe { width:4px; background:var(--acc); position:absolute; left:0; top:0; bottom:0; opacity: 0.8; }
+.cam-stripe.thm { background:var(--thm); }
+.sbs.cam { position:relative; padding-left:22px; }
+
+/* presets */
+.pgrid2, .pgrid3 { display:grid; gap:6px; margin-bottom:10px; }
+.pgrid2 { grid-template-columns: 1fr 1fr; }
+.pgrid3 { grid-template-columns: 1fr 1fr 1fr; }
+
+.pbtn {
+  background:var(--si); border:1px solid var(--border); color:var(--ton);
+  padding:8px 10px; cursor:pointer; transition:all .15s;
+  position: relative;
+}
+.pbtn:hover { background: var(--si2); border-color: rgba(255,255,255,0.2); }
+.pbtn.on.rgb { border-color:var(--acc); background:rgba(243,103,2,0.08); }
+.pbtn.on.thm { border-color:var(--thm); background:rgba(0,229,255,0.05); }
+
+.pn { font-size:10px; font-weight:600; display:block; letter-spacing: 0.02em; }
+.pd { font-size:8px; color:var(--tdim); margin-top:2px; display:block; }
+
+/* mode toggle */
+.mtog { display:flex; margin-bottom:10px; background: rgba(0,0,0,0.15); padding: 2px; }
+.mbtn {
+  flex:1; height:26px; border:none;
+  background:transparent; color:var(--tdim); font:9px/1 var(--font); letter-spacing:var(--track);
+  text-transform:uppercase; cursor:pointer; transition:all .2s;
+}
+.mbtn.on { background:var(--si2); color:var(--ton); font-weight: 600; }
+
+/* inputs */
+.fg { margin-bottom:10px; }
+.fl { display:block; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--tmut); margin-bottom:5px; font-weight: 500; }
+.irow { display:flex; }
+.inp {
+  flex:1; height:32px; background:var(--si2); border:1px solid var(--border);
+  color:var(--ton); font:500 13px var(--mono); padding:0 10px; transition:border-color .15s;
+}
+.inp:focus { outline:none; border-color:var(--acc); background: var(--si); }
+.utag {
+  height:32px; padding:0 10px; background:var(--si);
+  border:1px solid var(--border); border-left:none;
+  color:var(--tdim); font:9px var(--mono);
+  display:flex; align-items:center;
+}
+
+/* ── SENSOR SPECS ── */
+.sgrid { display:grid; grid-template-columns:1fr 1fr; gap:1px; background: var(--border); border: 1px solid var(--border); }
+.sc { background:var(--surface); padding:8px 10px; }
+.sk { font-size:8px; letter-spacing:0.1em; text-transform:uppercase; color:var(--tdim); margin-bottom:4px; }
+.sv { font-size:13px; font-weight:600; color:var(--tp); font-family: var(--mono); }
+.sv small { font-size:9px; color:var(--tdim); margin-left: 2px; }
+
+/* slider */
+.sldr {
+  width:100%; height:2px; background:var(--si2);
+  cursor:pointer; -webkit-appearance:none; appearance:none; margin: 12px 0 6px;
+}
+.sldr::-webkit-slider-thumb {
+  -webkit-appearance:none; width:12px; height:12px; background:var(--acc); cursor:pointer;
+  border: 2px solid var(--surface);
+}
+.sticks { display:flex; justify-content:space-between; font: 9px var(--mono); color:var(--tdim); }
+.dinfo { font-size:9px; color:var(--tdim); margin-top:8px; opacity: 0.7; }
+
+/* target buttons */
+.tgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.tabtn {
+  background:var(--si); border:1px solid var(--border); color:var(--tmut);
+  padding:10px 6px; cursor:pointer; text-align:center; transition:all .15s;
+}
+.tabtn:hover { border-color:var(--acc); color:var(--ton); background: var(--si2); }
+.ti { font-size:18px; display:block; margin-bottom:4px; filter: grayscale(0.2); }
+.tn { font-size:9px; letter-spacing:0.05em; text-transform:uppercase; display:block; font-weight: 500; }
+.tsz { font-size:8px; color:var(--tdim); margin-top:2px; display:block; font-family: var(--mono); }
+
+/* criteria */
+.crrow { display:flex; gap:1px; background: var(--border); margin-bottom:10px; }
+.crc { flex:1; background:var(--surface); padding:6px 4px; }
+.crl { font-size:8px; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px; font-weight: 600; }
+.crl.det { color:var(--det); } .crl.rec { color:var(--rec); } .crl.idt { color:var(--idt); }
+.cri { display:flex; align-items:center; gap:4px; }
+.crn { width:100%; height:32px; background:var(--si2); border:1px solid transparent;
+      color:var(--ton); font:600 12px var(--mono); padding:0 6px; text-align:center; min-width:0; }
+.crn:focus { outline:none; border-color:rgba(255,255,255,0.1); }
+.cru { font-size:8px; color:var(--tdim); text-transform: uppercase; flex-shrink:0; }
+
+.ntag { 
+  font-size:9px; color:var(--tmut); border:1px solid var(--border); padding:4px 10px;
+  display:inline-block; letter-spacing:0.04em; cursor:pointer; transition:all .15s;
+  text-transform: uppercase; font-weight: 500;
+}
+.ntag:hover { color:var(--acc); border-color:var(--acc); background: rgba(243,103,2,0.05); }
+
+/* ── MAIN ── */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; background:var(--bg); }
+
+/* Visualization Row */
+.viz-row { 
+  display:flex; flex-direction:row; flex-shrink:0; height:340px; 
+  border-bottom:1px solid var(--border); background: #050505;
+}
+.viz { flex:1; position:relative; overflow:hidden; }
+#dri-svg { display:block; width:100%; height:100%; }
+
+/* Legend */
+.svg-legend {
+  position:absolute; top:20px; right:20px; display:flex; flex-direction:column; gap:8px;
+  pointer-events:none; background: rgba(0,0,0,0.5); padding: 10px; border: 1px solid var(--border);
+}
+.leg-item { display:flex; align-items:center; gap:8px; font: 500 9px var(--font); letter-spacing:0.1em; text-transform:uppercase; color:var(--ton); }
+.leg-swatch { width:12px; height:2px; }
+
+/* DRI Summary Panel */
+.dri-top { 
+  display:none; width:280px; min-width:280px; flex-direction:column;
+  border-left:1px solid var(--border); background:var(--surface);
+}
+.dri-hdr {
+  padding:12px 15px; background:var(--si);
+  font-size:10px; font-weight:600; letter-spacing:0.15em; text-transform:uppercase; color:var(--tmut);
+  border-bottom:1px solid var(--border);
+}
+.dri-rows { display:flex; flex-direction:column; flex:1; }
+.dri-row { display:flex; flex-direction:column; flex:1; padding: 10px 0; }
+.dri-row + .dri-row { border-top:1px solid var(--border); }
+
+.cam-tag {
+  padding:0 15px 8px; font-size:10px; letter-spacing:0.12em; text-transform:uppercase;
+  font-weight:700; color:var(--tmut);
+}
+.cam-tag.rgb { color:var(--acc); }
+.cam-tag.thm { color:var(--thm); }
+
+.dric { padding:6px 15px; display:grid; grid-template-columns: 80px 1fr 30px; align-items: baseline; }
+.dric-lbl { font-size:9px; letter-spacing:0.08em; text-transform:uppercase; font-weight: 500; }
+.dric-lbl.det { color:var(--det); } .dric-lbl.rec { color:var(--rec); } .dric-lbl.idt { color:var(--idt); }
+.dric-val { font-size:18px; font-weight:700; color:var(--ton); font-family: var(--mono); text-align: right; }
+.dric-unit { font-size:9px; color:var(--tdim); text-transform: uppercase; margin-left: 6px; }
+
+/* Cards Area */
+.cards-area { flex:1; overflow-y:auto; padding:20px; display:grid; grid-template-columns: repeat(auto-fill, minmax(600px, 1fr)); gap:15px; align-content: start; }
+.cards-area::-webkit-scrollbar { width:4px; }
+.cards-area::-webkit-scrollbar-thumb { background:var(--si2); }
+.empty { flex:1; display:flex; align-items:center; justify-content:center;
+        font-size:11px; letter-spacing:0.15em; text-transform:uppercase; color:var(--tdim); font-weight: 500; }
+
+/* ── TARGET CARD ── */
+.tcard { background:var(--surface); border:1px solid var(--border); display:flex; flex-direction:column; position: relative; }
+.tcard-hdr { display:flex; align-items:center; gap:10px; padding:10px 15px; background:var(--si); border-bottom: 1px solid var(--border); }
+.tcard-icon { font-size:16px; }
+.tcard-name { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--tp); flex:1; }
+
+.badge { font-size:8px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; padding:3px 8px; border:1px solid; }
+.badge.idt { color:var(--idt); border-color:rgba(0,230,118,0.3); background:rgba(0,230,118,0.05); }
+.badge.rec { color:var(--rec); border-color:rgba(255,179,0,0.3); background:rgba(255,179,0,0.05); }
+.badge.det { color:var(--det); border-color:rgba(255,77,77,0.3); background:rgba(255,77,77,0.05); }
+.badge.non { color:var(--tdim); border-color:var(--border); }
+
+.rmbtn { background:none; border:none; color:var(--tdim); font-size:18px; cursor:pointer; padding:5px; transition:color .2s; }
+.rmbtn:hover { color:var(--det); }
+
+.tcard-body { display:flex; min-height: 220px; }
+.tcard-left { flex:1; padding:15px 20px; }
+
+/* Global Check */
+.gchk { display:flex; align-items:center; gap:8px; margin-bottom:12px; font-size:11px; color:var(--tmut); font-weight: 500; }
+.gchk input { accent-color:var(--acc); width: 14px; height: 14px; }
+.glbl { color:var(--acc); font-family: var(--mono); }
+
+/* Dim Fields */
+.dimrow { display:flex; gap:8px; margin-bottom:15px; }
+.dimg { flex:1; display:flex; flex-direction:column; gap:4px; }
+.diml { font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--tdim); font-weight: 600; }
+.dimif { display:flex; }
+.dimi { flex:1; height:30px; background:var(--si2); border:1px solid var(--border);
+      color:var(--ton); font:600 13px var(--mono); padding:0 8px; }
+.dimi:focus { outline:none; border-color:rgba(255,255,255,0.2); }
+.dimi:disabled { opacity:0.3; cursor:not-allowed; }
+.dimu { height:30px; padding:0 8px; background:var(--si); border:1px solid var(--border); border-left:none;
+      font:9px var(--mono); color:var(--tdim); display:flex; align-items:center; }
+
+/* Stats Row */
+.pxrow { display:flex; gap:15px; margin-bottom:15px; padding: 8px 12px; background: rgba(0,0,0,0.2); border-left: 2px solid var(--si2); }
+.pxs { font-size:10px; color:var(--tmut); letter-spacing: 0.02em; } 
+.pxs b { color:var(--tp); font-weight:600; font-family: var(--mono); margin-left: 4px; }
+
+/* Progress Bars */
+.bars-section { margin-bottom:15px; }
+.bars-cam-lbl { font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+.bars-cam-lbl.rgb { color:var(--acc); }
+.bars-cam-lbl.thm { color:var(--thm); }
+
+.bars { display:flex; flex-direction:column; gap:6px; }
+.brow { display:flex; align-items:center; gap:10px; }
+.blbl { font-size:9px; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; width:80px; }
+.blbl.det { color:var(--det); } .blbl.rec { color:var(--rec); } .blbl.idt { color:var(--idt); }
+
+.btrack { flex:1; height:4px; background:var(--si2); position:relative; overflow:hidden; }
+.bfill { position:absolute; left:0; top:0; height:100%; transition:width .4s cubic-bezier(0.4, 0, 0.2, 1); }
+.bfill.det { background:var(--det); } .bfill.rec { background:var(--rec); } .bfill.idt { background:var(--idt); }
+.bfill.thm-det { background:var(--thm); opacity: 0.4; }
+.bfill.thm-rec { background:var(--thm); opacity: 0.7; }
+.bfill.thm-idt { background:var(--thm); }
+
+.bdist { position:absolute; top:0; width:2px; height:100%; background:#FFF; box-shadow: 0 0 4px rgba(255,255,255,0.8); z-index: 2; }
+.bval { font: 10px var(--mono); color:var(--tmut); width:80px; text-align:right; white-space:nowrap; }
+
+/* FOV Grid */
+.fova-ttl { font-size:9px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--tdim); margin-bottom:8px; }
+.fovgrid { display:grid; grid-template-columns: repeat(3, 1fr); gap:1px; background: var(--border); border: 1px solid var(--border); }
+.fovc { background:var(--si); padding:6px 10px; }
+.fovk { font-size:8px; letter-spacing:0.08em; text-transform:uppercase; color:var(--tdim); margin-bottom:2px; }
+.fovv { font: 600 11px var(--mono); color:var(--tp); }
+
+/* Pixel Preview */
+.tcard-px { width:220px; min-width:220px; background:#000; position:relative; overflow:hidden; border-left: 1px solid var(--border); }
+.tcard-px canvas { display:block; width:100%; height:100%; image-rendering: pixelated; }
+.px-res { position:absolute; top:10px; right:10px; font:9px var(--mono); color:rgba(255,255,255,0.2); }
+.px-ct { position:absolute; bottom:10px; right:10px; font:600 10px var(--mono); color:var(--idt); background: rgba(0,0,0,0.6); padding: 2px 4px; }
+.px-sc { position:absolute; bottom:10px; left:10px; font:10px var(--mono); color:var(--tdim); }
+
+.hidden { display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="hdr-l">
+    <div class="hdr-title">DRI CALCULATOR</div>
+    <div class="hdr-sub">DETECTION · RECOGNITION · IDENTIFICATION — JOHNSON CRITERIA</div>
+  </div>
+  <div class="hdr-r">
+    <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--tdim);margin-right:5px">Probability</div>
+    <div class="unit-strip">
+      <button class="ubtn"    data-prob="0.5" onclick="setProb(0.5)">50%</button>
+      <button class="ubtn"    data-prob="0.7" onclick="setProb(0.7)">70%</button>
+      <button class="ubtn on" data-prob="0.9" onclick="setProb(0.9)">90%</button>
+    </div>
+    <div style="width:1px;height:20px;background:rgba(255,255,255,.1);margin:0 10px"></div>
+    <div style="font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--tdim);margin-right:5px">Units</div>
+    <div class="unit-strip">
+      <button class="ubtn"    data-u="ft" onclick="setUnit('ft')">Feet</button>
+      <button class="ubtn on" data-u="m"  onclick="setUnit('m')">Meters</button>
+      <button class="ubtn"    data-u="nm" onclick="setUnit('nm')">NM</button>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sb">
+
+  <!-- RGB Camera -->
+  <div class="sbs cam">
+    <div class="cam-stripe"></div>
+    <span class="sbl rgb">RGB Camera</span>
+    <div class="pgrid2">
+      <button class="pbtn on rgb" data-p="daa3850" onclick="setPreset('A','daa3850',this)">
+        <span class="pn">Basler daA3850</span><span class="pd">8MP · 4 mm</span>
+      </button>
+      <button class="pbtn rgb" data-p="opt_custom" onclick="setPreset('A','opt_custom',this)">
+        <span class="pn">Custom</span><span class="pd">User defined</span>
+      </button>
+    </div>
+    <div class="mtog">
+      <button class="mbtn on" id="mbA-focal" onclick="setMode('A','focal')">Focal Length</button>
+      <button class="mbtn"    id="mbA-hfov"  onclick="setMode('A','hfov')">HFOV (°)</button>
+    </div>
+    <div id="focalA">
+      <div class="fg">
+        <label class="fl">Focal Length</label>
+        <div class="irow">
+          <input class="inp" type="number" id="focalA-inp" value="4" min=".1" step=".1" oninput="onCam('A')">
+          <div class="utag">mm</div>
+        </div>
+      </div>
+    </div>
+    <div id="hfovA" class="hidden">
+      <div class="fg">
+        <label class="fl">HFOV</label>
+        <div class="irow">
+          <input class="inp" type="number" id="hfovA-inp" value="50.06" min=".1" max="180" step=".01" oninput="onCam('A')">
+          <div class="utag">deg</div>
+        </div>
+      </div>
+    </div>
+    <!-- Custom sensor params -->
+    <div id="custA" class="hidden" style="margin-top:4px">
+      <div class="fg">
+        <label class="fl">Pixels X</label>
+        <div class="irow"><input class="inp" type="number" id="custA-rh" value="1920" min="1" step="1" oninput="onCustom('A')"><div class="utag">px</div></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Pixels Y</label>
+        <div class="irow"><input class="inp" type="number" id="custA-rv" value="1080" min="1" step="1" oninput="onCustom('A')"><div class="utag">px</div></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Pixel Size</label>
+        <div class="irow">
+          <input class="inp" type="number" id="custA-px" value="1.45" min="0.01" step="0.01" oninput="onCustom('A')">
+          <div class="utag">µm</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">F-Number</label>
+        <div class="irow">
+          <div class="utag" style="border-right:none">f /</div>
+          <input class="inp" type="number" id="custA-fn" value="2.8" min="0.5" step="0.1" oninput="onCustom('A')">
+        </div>
+      </div>
+    </div>
+    <div class="sgrid" style="margin-top:4px">
+      <div class="sc"><div class="sk">HFOV</div><div class="sv" id="sA-hfov">—</div></div>
+      <div class="sc"><div class="sk">VFOV</div><div class="sv" id="sA-vfov">—</div></div>
+      <div class="sc"><div class="sk">IFOV</div><div class="sv" id="sA-ifov">—</div></div>
+      <div class="sc"><div class="sk">Resolution</div><div class="sv" id="sA-res" style="font-size:11px">—</div></div>
+    </div>
+  </div>
+
+  <!-- Thermal Camera -->
+  <div class="sbs cam">
+    <div class="cam-stripe thm"></div>
+    <span class="sbl thm">Thermal Camera</span>
+    <div class="pgrid3">
+      <button class="pbtn on thm" data-p="evidir640" onclick="setPreset('B','evidir640',this)">
+        <span class="pn">Evidir α</span><span class="pd">640×480</span>
+      </button>
+      <button class="pbtn thm" data-p="bosonplus" onclick="setPreset('B','bosonplus',this)">
+        <span class="pn">Boson+</span><span class="pd">640×512</span>
+      </button>
+      <button class="pbtn thm" data-p="thm_custom" onclick="setPreset('B','thm_custom',this)">
+        <span class="pn">Custom</span><span class="pd">User</span>
+      </button>
+    </div>
+    <!-- Lens selector — shown for multi-lens presets -->
+    <div id="lensB" class="hidden" style="margin-bottom:4px">
+      <div class="fg">
+        <label class="fl">Lens</label>
+        <div class="irow">
+          <select class="inp" id="lensB-sel" onchange="onLens('B')" style="cursor:pointer;appearance:none;-webkit-appearance:none"></select>
+          <div class="utag">mm</div>
+        </div>
+      </div>
+    </div>
+    <div class="mtog">
+      <button class="mbtn on" id="mbB-focal" onclick="setMode('B','focal')">Focal Length</button>
+      <button class="mbtn"    id="mbB-hfov"  onclick="setMode('B','hfov')">HFOV (°)</button>
+    </div>
+    <div id="focalB">
+      <div class="fg">
+        <label class="fl">Focal Length</label>
+        <div class="irow">
+          <input class="inp" type="number" id="focalB-inp" value="19" min=".1" step=".1" oninput="onCam('B')">
+          <div class="utag">mm</div>
+        </div>
+      </div>
+    </div>
+    <div id="hfovB" class="hidden">
+      <div class="fg">
+        <label class="fl">HFOV</label>
+        <div class="irow">
+          <input class="inp" type="number" id="hfovB-inp" value="18.4" min=".1" max="180" step=".01" oninput="onCam('B')">
+          <div class="utag">deg</div>
+        </div>
+      </div>
+    </div>
+    <!-- Custom sensor params -->
+    <div id="custB" class="hidden" style="margin-top:4px">
+      <div class="fg">
+        <label class="fl">Pixels X</label>
+        <div class="irow"><input class="inp" type="number" id="custB-rh" value="640" min="1" step="1" oninput="onCustom('B')"><div class="utag">px</div></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Pixels Y</label>
+        <div class="irow"><input class="inp" type="number" id="custB-rv" value="512" min="1" step="1" oninput="onCustom('B')"><div class="utag">px</div></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Pixel Size</label>
+        <div class="irow">
+          <input class="inp" type="number" id="custB-px" value="12" min="0.01" step="0.01" oninput="onCustom('B')">
+          <div class="utag">µm</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">F-Number</label>
+        <div class="irow">
+          <div class="utag" style="border-right:none">f /</div>
+          <input class="inp" type="number" id="custB-fn" value="1.0" min="0.5" step="0.1" oninput="onCustom('B')">
+        </div>
+      </div>
+    </div>
+    <div class="sgrid" style="margin-top:4px">
+      <div class="sc"><div class="sk">HFOV</div><div class="sv" id="sB-hfov">—</div></div>
+      <div class="sc"><div class="sk">VFOV</div><div class="sv" id="sB-vfov">—</div></div>
+      <div class="sc"><div class="sk">IFOV</div><div class="sv" id="sB-ifov">—</div></div>
+      <div class="sc"><div class="sk">Resolution</div><div class="sv" id="sB-res" style="font-size:11px">—</div></div>
+    </div>
+  </div>
+
+  <!-- Global Distance -->
+  <div class="sbs">
+    <span class="sbl neu">Global Distance</span>
+    <div class="fg">
+      <label class="fl" id="dist-lbl">Distance (ft)</label>
+      <div class="irow">
+        <input class="inp" type="number" id="gdist-inp" value="100" min="0" step="1" oninput="onDist()">
+        <div class="utag" id="dist-utag">ft</div>
+      </div>
+    </div>
+    <input type="range" class="sldr" id="gdist-sldr" min="0" max="5000" value="100" oninput="onSlider()">
+    <div class="sticks">
+      <span id="st0">0</span><span id="st1">1k</span><span id="st2">2k</span><span id="st3">5k ft</span>
+    </div>
+    <div class="dinfo" id="dist-info">0 of 0 targets using global distance</div>
+  </div>
+
+  <!-- Add Targets -->
+  <div class="sbs">
+    <span class="sbl neu">Add Targets</span>
+    <div class="tgrid">
+      <button class="tabtn" onclick="addTarget('person_w')"><span class="ti">🏊</span><span class="tn">Person / MOB</span><span class="tsz">0.3 × 0.4 m</span></button>
+      <button class="tabtn" onclick="addTarget('buoy')"><span class="ti">🔴</span><span class="tn">Buoy</span><span class="tsz">0.5 × 1.0 m</span></button>
+      <button class="tabtn" onclick="addTarget('log')"><span class="ti">🪵</span><span class="tn">Wooden Log</span><span class="tsz">4.0 × 0.15 m</span></button>
+      <button class="tabtn" onclick="addTarget('container')"><span class="ti">📦</span><span class="tn">Container</span><span class="tsz">2.0 × 0.5 m</span></button>
+      <button class="tabtn" onclick="addTarget('rib')"><span class="ti">🚤</span><span class="tn">RIB</span><span class="tsz">5.0 × 2.0 m</span></button>
+      <button class="tabtn" onclick="addTarget('usv')"><span class="ti">🛥️</span><span class="tn">USV</span><span class="tsz">10.0 × 1.0 m</span></button>
+    </div>
+  </div>
+
+  <!-- DRI Criteria -->
+  <div class="sbs">
+    <span class="sbl neu">DRI Criteria (Cycles on Target)</span>
+    <div class="crrow">
+      <div class="crc"><div class="crl det">Detection</div><div class="cri"><input class="crn" type="number" id="cyc-det" value="1" min=".1" step=".1" oninput="onCycBase('det',this.value)"></div></div>
+      <div class="crc"><div class="crl rec">Recognition</div><div class="cri"><input class="crn" type="number" id="cyc-rec" value="3" min=".1" step=".1" oninput="onCycBase('rec',this.value)"></div></div>
+      <div class="crc"><div class="crl idt">Identification</div><div class="cri"><input class="crn" type="number" id="cyc-idt" value="6" min=".1" step=".1" oninput="onCycBase('idt',this.value)"></div></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span class="ntag" style="margin-bottom:0" onclick="resetNato()">NATO 50% (1/3/6)</span>
+      <span id="cyc-base-lbl" style="font-size:8px;color:var(--tdim);letter-spacing:.06em">N₅₀: 1 / 3 / 6</span>
+    </div>
+    <p class="cinfo">Cycles on target at selected probability. Edit to set custom N₅₀ values — switching probability rescales automatically.</p>
+  </div>
+
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main" id="main">
+
+  <div class="viz-row">
+    <!-- SVG FOV Visualization -->
+    <div class="viz" id="viz-wrap">
+      <svg id="dri-svg" viewBox="0 0 960 320" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="bg-g" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#0A0908"/><stop offset="100%" stop-color="#141210"/>
+          </linearGradient>
+        </defs>
+        <rect width="960" height="320" fill="url(#bg-g)"/>
+        <g id="svg-dyn"></g>
+      </svg>
+      <div class="svg-legend">
+        <div class="leg-item"><div class="leg-swatch" style="background:var(--acc)"></div>RGB</div>
+        <div class="leg-item"><div class="leg-swatch" style="background:var(--thm)"></div>Thermal</div>
+      </div>
+    </div>
+
+    <!-- DRI ranges panel -->
+    <div class="dri-top" id="dri-top">
+      <div class="dri-hdr" id="dri-hdr">DRI RANGES</div>
+      <div class="dri-rows">
+        <div class="dri-row">
+          <div class="cam-tag rgb">RGB</div>
+          <div class="dric"><div class="dric-lbl det">Detection</div><div class="dric-val" id="dcA-det">—</div><div class="dric-unit" id="dcA-detu">ft</div></div>
+          <div class="dric mid"><div class="dric-lbl rec">Recognition</div><div class="dric-val" id="dcA-rec">—</div><div class="dric-unit" id="dcA-recu">ft</div></div>
+          <div class="dric"><div class="dric-lbl idt">Identification</div><div class="dric-val" id="dcA-idt">—</div><div class="dric-unit" id="dcA-idtu">ft</div></div>
+        </div>
+        <div class="dri-row">
+          <div class="cam-tag thm">Thermal</div>
+          <div class="dric"><div class="dric-lbl det">Detection</div><div class="dric-val" id="dcB-det">—</div><div class="dric-unit" id="dcB-detu">ft</div></div>
+          <div class="dric mid"><div class="dric-lbl rec">Recognition</div><div class="dric-val" id="dcB-rec">—</div><div class="dric-unit" id="dcB-recu">ft</div></div>
+          <div class="dric"><div class="dric-lbl idt">Identification</div><div class="dric-val" id="dcB-idt">—</div><div class="dric-unit" id="dcB-idtu">ft</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Target cards -->
+  <div class="cards-area" id="cards-area">
+    <div class="empty" id="empty-state">Add targets from the left panel to calculate DRI ranges</div>
+  </div>
+
+</div>
+</div><!-- /shell -->
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CAMERA PRESETS
+// ═══════════════════════════════════════════════════
+const CAM_PRESETS = {
+  // RGB / Optical
+  daa3850:   { rh:3840, rv:2160, sw:8.064,  sh:4.536,  focal:4,  type:'Visible CMOS' },
+  opt_custom:{ rh:1920, rv:1080, sw:4.8,   sh:2.7,    focal:8,  type:'Custom Optical'},
+  // Thermal LWIR
+  boson320:  { rh:320,  rv:256,  sw:3.84,  sh:3.072,  focal:9,   type:'Thermal LWIR' },
+  boson640:  { rh:640,  rv:512,  sw:7.68,  sh:6.144,  focal:19,  type:'Thermal LWIR' },
+  evidir640: { rh:640,  rv:480,  sw:7.68,  sh:5.76,   focal:9.2, type:'Thermal LWIR',
+               lenses:[4.9, 6.2, 9.2, 13.6, 25, 50] },
+  bosonplus: { rh:640,  rv:512,  sw:7.68,  sh:6.144,  focal:9.2, type:'Thermal LWIR',
+               lenses:[4.9, 9.2, 13.6, 14, 24, 32, 36, 55] },
+  thm_custom:{ rh:640,  rv:512,  sw:7.68,  sh:6.144,  focal:19,  type:'Custom Thermal'},
+};
+
+// ═══════════════════════════════════════════════════
+//  TARGET DEFINITIONS  (dimensions always in metres)
+// ═══════════════════════════════════════════════════
+const TDEFS = {
+  person_w:  { label:'Person / MOB',       icon:'🏊', wm:0.3,  hm:0.4  },
+  buoy:      { label:'Buoy',               icon:'🔴', wm:0.5,  hm:1.0  },
+  log:       { label:'Wooden Log',         icon:'🪵', wm:4.0,  hm:0.15 },
+  container: { label:'Container',          icon:'📦', wm:2.0,  hm:0.5  },
+  rib:       { label:'RIB',                icon:'🚤', wm:5.0,  hm:2.0  },
+  usv:       { label:'USV',                icon:'🛥️', wm:10.0, hm:1.0  },
+};
+
+// ═══════════════════════════════════════════════════
+//  UNIT CONFIG
+// ═══════════════════════════════════════════════════
+const UCFG = {
+  ft:{ toM:0.3048,  fromM:3.28084, label:'ft', slMax:5000, ticks:['0','1k','2k','5k ft'],    tvs:[0,1000,2000,5000] },
+  m: { toM:1,       fromM:1,       label:'m',  slMax:1500, ticks:['0','300','750','1.5k m'],  tvs:[0,300,750,1500]   },
+  nm:{ toM:1852,    fromM:1/1852,  label:'NM', slMax:5,    ticks:['0','1','2.5','5 NM'],      tvs:[0,1,2.5,5]        },
+};
+
+// ═══════════════════════════════════════════════════
+//  STATE  — all lengths in metres internally
+// ═══════════════════════════════════════════════════
+const S = {
+  unit: 'm',
+  camA: { preset:'daa3850',  mode:'focal', focalMm:4,  hfovDeg:50.06,
+          custom:{ rh:1920, rv:1080, pxSzUm:1.45, focal:8,  fnum:2.8 } },  // RGB
+  camB: { preset:'evidir640', mode:'focal', focalMm:9.2, hfovDeg:18.4,
+          custom:{ rh:640,  rv:480,  pxSzUm:12,   focal:9.2, fnum:1.0 } },  // Thermal
+  prob:   0.9,      // probability level (0.5 / 0.7 / 0.9)
+  cycBase:{ det:1, rec:3, idt:6 },  // N50 cycle counts
+  gdistM: 30.48,   // 100 ft in metres
+  targets: [],
+  nextId: 1,
+};
+
+// ═══════════════════════════════════════════════════
+//  PROBABILITY MODEL  (NVTherm logistic, E=2.7)
+//  Returns cycle multiplier relative to N50 baseline
+// ═══════════════════════════════════════════════════
+function probFactor(p) {
+  return Math.pow(p / (1 - p), 1 / 2.7);
+}
+
+// ═══════════════════════════════════════════════════
+//  UNIT HELPERS
+// ═══════════════════════════════════════════════════
+const U    = () => UCFG[S.unit];
+const toM  = v => v * U().toM;
+const fromM= m => m * U().fromM;
+const ul   = () => U().label;
+function fmtM(m, d) {
+  if (!isFinite(m) || m < 0) return '—';
+  const v = fromM(m);
+  return v.toLocaleString('en-US', { maximumFractionDigits: d ?? (v < 10 ? 2 : v < 100 ? 1 : 0) });
+}
+
+// ═══════════════════════════════════════════════════
+//  CAMERA PARAMS
+// ═══════════════════════════════════════════════════
+function getCam(cfg) {
+  const isCustom = cfg.preset === 'opt_custom' || cfg.preset === 'thm_custom';
+  const c = cfg.custom;
+  const p = isCustom
+    ? { rh:c.rh, rv:c.rv, sw:c.pxSzUm*c.rh/1000, sh:c.pxSzUm*c.rv/1000, focal:c.focal }
+    : CAM_PRESETS[cfg.preset];
+  let hfov, vfov, focal;
+  if (cfg.mode === 'focal') {
+    focal = cfg.focalMm;
+    hfov  = 2 * Math.atan(p.sw / (2 * focal)) * 180 / Math.PI;
+    vfov  = 2 * Math.atan(p.sh / (2 * focal)) * 180 / Math.PI;
+  } else {
+    hfov  = cfg.hfovDeg;
+    focal = (p.sw / 2) / Math.tan(hfov * Math.PI / 360);
+    vfov  = 2 * Math.atan(Math.tan(hfov * Math.PI / 360) * p.rv / p.rh) * 180 / Math.PI;
+  }
+  const ifov_rad  = (hfov * Math.PI / 180) / p.rh;
+  const ifov_mrad = ifov_rad * 1000;
+  return { hfov, vfov, focal, ifov_rad, ifov_mrad, rh:p.rh, rv:p.rv, type:p.type };
+}
+
+// ═══════════════════════════════════════════════════
+//  DRI CALCULATION
+//  D = target_h · res_h / (cycles · 2 · tan(HFOV/2))
+//  Equivalently: D = target_h / (cycles · 2 · IFOV_rad)
+// ═══════════════════════════════════════════════════
+function computeDRI(t, cam) {
+  const hm = t.hm, wm = t.wm;
+  const distM = t.useGlobal ? S.gdistM : t.distM;
+  const cDet = parseFloat(document.getElementById('cyc-det').value) || 1;
+  const cRec = parseFloat(document.getElementById('cyc-rec').value) || 3;
+  const cIdt = parseFloat(document.getElementById('cyc-idt').value) || 6;
+
+  const detM = hm / (cDet * 2 * cam.ifov_rad);
+  const recM = hm / (cRec * 2 * cam.ifov_rad);
+  const idtM = hm / (cIdt * 2 * cam.ifov_rad);
+
+  const pxH  = distM > 0 ? hm / (distM * cam.ifov_rad) : 0;
+  const pxW  = distM > 0 ? wm / (distM * cam.ifov_rad) : 0;
+  const fovH = 2 * distM * Math.tan(cam.hfov * Math.PI / 360);
+  const fovV = 2 * distM * Math.tan(cam.vfov * Math.PI / 360);
+  const scrW = fovH > 0 ? wm / fovH * 100 : 0;
+  const scrH = fovV > 0 ? hm / fovV * 100 : 0;
+  const fovArea = (fovH > 0 && fovV > 0) ? wm * hm / (fovH * fovV) * 100 : 0;
+  const pxDens  = pxH * pxW / (hm * wm);
+  const badge   = distM < idtM ? 'idt' : distM < recM ? 'rec' : distM < detM ? 'det' : 'non';
+  const bLabel  = { idt:'IDENTIFICATION', rec:'RECOGNITION', det:'DETECTION', non:'BEYOND DET.' };
+  return { detM, recM, idtM, pxH, pxW, fovH, fovV, scrW, scrH, fovArea, pxDens, distM, hm, wm, badge, bLabel:bLabel[badge] };
+}
+
+// ═══════════════════════════════════════════════════
+//  SVG — DUAL CONE VISUALIZATION
+// ═══════════════════════════════════════════════════
+function f2(n){ return isFinite(n) ? n.toFixed(1) : '0' }
+
+function sector(cx, cy, r, ha, fill, opacity) {
+  const laf = ha * 2 > Math.PI ? 1 : 0;
+  const ax = cx + r * Math.cos(ha);
+  const ay1= cy - r * Math.sin(ha);
+  const ay2= cy + r * Math.sin(ha);
+  return `<path d="M${cx},${cy} L${f2(ax)},${f2(ay1)} A${f2(r)},${f2(r)} 0 ${laf},1 ${f2(ax)},${f2(ay2)} Z"
+           fill="${fill}" opacity="${opacity}" stroke="none"/>`;
+}
+
+function driArc(cx, cy, r, ha, color, laf) {
+  const ax = cx + r * Math.cos(ha);
+  const ay1= cy - r * Math.sin(ha);
+  const ay2= cy + r * Math.sin(ha);
+  return `<path d="M${f2(ax)},${f2(ay1)} A${f2(r)},${f2(r)} 0 ${laf},1 ${f2(ax)},${f2(ay2)}"
+           fill="none" stroke="${color}" stroke-width="2.5" opacity=".9"/>`;
+}
+
+function updateSVG(camA, camB, rA0, rB0, t0) {
+  const dyn = document.getElementById('svg-dyn');
+  const VW = 960, VH = 320;
+  const CX = 75, CY = VH / 2;
+  const PAD = 80;
+
+  const haA = camA.hfov * Math.PI / 360;
+  const haB = camB.hfov * Math.PI / 360;
+
+  // Determine display range = max detection range across both cameras
+  let maxM = 500;
+  if (rA0 && isFinite(rA0.detM) && rA0.detM > 0) maxM = Math.max(maxM, rA0.detM);
+  if (rB0 && isFinite(rB0.detM) && rB0.detM > 0) maxM = Math.max(maxM, rB0.detM);
+
+  const sc  = (VW - CX - PAD) / maxM;
+  const sx  = m => CX + m * sc;
+  const hwA = m => m * sc * Math.tan(haA);
+  const hwB = m => m * sc * Math.tan(haB);
+
+  let h = '';
+
+  // ── Technical Grid (Square) ──
+  const gridStep = 40;
+  for(let x=0; x<VW; x+=gridStep) h += `<line x1="${x}" y1="0" x2="${x}" y2="${VH}" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>`;
+  for(let y=0; y<VH; y+=gridStep) h += `<line x1="0" y1="${y}" x2="${VW}" y2="${y}" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/>`;
+
+  // ── Grid arcs (based on max range) ──
+  [.2, .4, .6, .8, 1.0].forEach(f => {
+    const d = maxM * f;
+    const r = d * sc;
+    const ha = Math.max(haA, haB, 0.5);  // widest angle for grid
+    const laf = ha * 2 > Math.PI ? 1 : 0;
+    const ax = CX + r * Math.cos(ha), ay1 = CY - r * Math.sin(ha), ay2 = CY + r * Math.sin(ha);
+    h += `<path d="M${f2(ax)},${f2(ay1)} A${f2(r)},${f2(r)} 0 ${laf},1 ${f2(ax)},${f2(ay2)}"
+           fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="2,4"/>`;
+    // range tick on centre axis
+    h += `<text x="${f2(sx(d))}" y="${f2(CY + 18)}" fill="rgba(255,255,255,0.25)"
+           font-size="8" text-anchor="middle" font-family="JetBrains Mono, SF Mono">${fmtM(d,0)}</text>`;
+  });
+
+  // ── Centre axis ──
+  h += `<line x1="${CX}" y1="${CY}" x2="${f2(sx(maxM))}" y2="${CY}"
+         stroke="rgba(255,255,255,0.07)" stroke-width="1" stroke-dasharray="4,8"/>`;
+
+  // ── RGB cone (Camera A) — DRI sectors ──
+  if (rA0) {
+    // Detection sector (full, dark red)
+    h += sector(CX,CY, rA0.detM*sc, haA, '#FF4D4D', 0.15);
+    // Recognition sector
+    h += sector(CX,CY, rA0.recM*sc, haA, '#FFB300', 0.20);
+    // Identification sector
+    h += sector(CX,CY, rA0.idtM*sc, haA, '#00E676', 0.25);
+    
+    // DRI arcs
+    const lafA = haA * 2 > Math.PI ? 1 : 0;
+    h += driArc(CX,CY, rA0.idtM*sc, haA, '#00E676', lafA);
+    h += driArc(CX,CY, rA0.recM*sc, haA, '#FFB300', lafA);
+    h += driArc(CX,CY, rA0.detM*sc, haA, '#FF4D4D', lafA);
+    
+    // Labels
+    [{m:rA0.idtM,c:'#00E676',l:'IDT'},{m:rA0.recM,c:'#FFB300',l:'REC'},{m:rA0.detM,c:'#FF4D4D',l:'DET'}].forEach(({m,c,l})=>{
+      const x = f2(sx(m)), y = f2(CY - hwA(m) - 12);
+      h += `<text x="${x}" y="${y}" fill="${c}" font-size="9" text-anchor="middle"
+             font-weight="700" font-family="Inter, Segoe UI">${l}</text>`;
+    });
+  }
+
+  // ── Thermal cone (Camera B) ──
+  if (rB0) {
+    const tC = '#00E5FF';
+    const lafB = haB * 2 > Math.PI ? 1 : 0;
+    const maxDispB = rB0 ? rB0.detM : maxM;
+    h += `<line x1="${CX}" y1="${CY}" x2="${f2(sx(maxDispB))}" y2="${f2(CY-hwB(maxDispB))}" stroke="${tC}" stroke-width="1" stroke-dasharray="4,4" opacity=".5"/>`;
+    h += `<line x1="${CX}" y1="${CY}" x2="${f2(sx(maxDispB))}" y2="${f2(CY+hwB(maxDispB))}" stroke="${tC}" stroke-width="1" stroke-dasharray="4,4" opacity=".5"/>`;
+
+    // Thermal DRI arcs
+    h += driArc(CX,CY, rB0.idtM*sc, haB, '#00E5FF', lafB);
+    h += driArc(CX,CY, rB0.recM*sc, haB, '#00E5FF', lafB);
+    h += driArc(CX,CY, rB0.detM*sc, haB, '#00E5FF', lafB);
+    
+    // Labels
+    [{m:rB0.idtM,l:'IDT'},{m:rB0.recM,l:'REC'},{m:rB0.detM,l:'DET'}].forEach(({m,l})=>{
+      const x = f2(sx(m)), y = f2(CY + hwB(m) + 20);
+      h += `<text x="${x}" y="${y}" fill="${tC}" font-size="9" text-anchor="middle"
+             font-weight="700" font-family="Inter, Segoe UI">${l}</text>`;
+    });
+  }
+
+  // ── Target marker at current distance ──
+  if (t0 && S.gdistM > 0) {
+    const tx = sx(S.gdistM);
+    if (tx < VW) {
+      h += `<line x1="${f2(tx)}" y1="${CY-30}" x2="${f2(tx)}" y2="${CY+30}" stroke="#FFF" stroke-width="1" opacity="0.4"/>`;
+      h += `<circle cx="${f2(tx)}" cy="${CY}" r="4" fill="#FFF" stroke="#000" stroke-width="1"/>`;
+      h += `<text x="${f2(tx+8)}" y="${f2(CY-12)}" fill="#FFF" font-size="10" font-weight="600" font-family="Inter">${t0.label.toUpperCase()}</text>`;
+    }
+  }
+
+  // ── Camera marker ──
+  h += `<circle cx="${CX}" cy="${CY}" r="4" fill="#F36702"/>`;
+  h += `<circle cx="${CX}" cy="${CY}" r="10" fill="none" stroke="#F36702" stroke-width="1" opacity="0.3"/>`;
+  h += `<text x="${CX}" y="${f2(CY+24)}" fill="rgba(255,255,255,0.4)" font-size="8" font-weight="700" text-anchor="middle" font-family="Inter">SENSOR</text>`;
+
+  // ── No-target hint ──
+  if (!rA0 && !rB0) {
+    h += `<text x="${VW/2}" y="${CY}" fill="rgba(255,255,255,0.1)" font-size="11" font-weight="600" letter-spacing="0.2em" text-anchor="middle" font-family="Inter">AWAITING TARGET INPUT</text>`;
+  }
+
+  dyn.innerHTML = h;
+}
+
+
+// ═══════════════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════════════
+function renderAll() {
+  const camA = getCam(S.camA);
+  const camB = getCam(S.camB);
+
+  // Update sensor specs
+  function updSpecs(pfx, cam) {
+    document.getElementById(`s${pfx}-hfov`).innerHTML = cam.hfov.toFixed(2) + '<small>°</small>';
+    document.getElementById(`s${pfx}-vfov`).innerHTML = cam.vfov.toFixed(2) + '<small>°</small>';
+    document.getElementById(`s${pfx}-ifov`).innerHTML = cam.ifov_mrad.toFixed(3) + '<small>mrad</small>';
+    document.getElementById(`s${pfx}-res`).textContent = `${cam.rh}×${cam.rv}`;
+  }
+  updSpecs('A', camA);
+  updSpecs('B', camB);
+
+  // Compute DRI for all targets, both cameras
+  const computed = S.targets.map(t => ({
+    t,
+    rA: computeDRI(t, camA),
+    rB: computeDRI(t, camB),
+  }));
+
+  // Global dist info
+  const gc = S.targets.filter(t => t.useGlobal).length;
+  document.getElementById('dist-info').textContent =
+    `${gc} of ${S.targets.length} target${S.targets.length !== 1 ? 's' : ''} using global distance`;
+
+  // SVG
+  const first = computed[0];
+  updateSVG(camA, camB, first?.rA || null, first?.rB || null, first?.t || null);
+
+  // DRI top cards
+  const topEl = document.getElementById('dri-top');
+  if (first) {
+    topEl.style.display = 'flex';
+    const t = first.t;
+    document.getElementById('dri-hdr').innerHTML =
+      `DRI RANGES — ${t.label.toUpperCase()} (<span style="text-transform:none">${t.hm.toFixed(1)}m × ${t.wm.toFixed(1)}m</span>)`;
+    const setCard = (pfx, r) => {
+      ['det','rec','idt'].forEach(k => {
+        const mKey = k === 'det' ? 'detM' : k === 'rec' ? 'recM' : 'idtM';
+        document.getElementById(`dc${pfx}-${k}`).textContent = fmtM(r[mKey]);
+        document.getElementById(`dc${pfx}-${k}u`).textContent = ul();
+      });
+    };
+    setCard('A', first.rA);
+    setCard('B', first.rB);
+  } else {
+    topEl.style.display = 'none';
+  }
+
+  // Empty state
+  document.getElementById('empty-state').style.display = S.targets.length ? 'none' : 'flex';
+
+  // Target cards
+  renderCards(computed, camA, camB);
+}
+
+// ═══════════════════════════════════════════════════
+//  TARGET CARDS
+// ═══════════════════════════════════════════════════
+function renderCards(computed, camA, camB) {
+  const area = document.getElementById('cards-area');
+  area.querySelectorAll('.tcard').forEach(el => el.remove());
+  computed.forEach(({ t, rA, rB }) => {
+    const card = buildCard(t, rA, rB, camA, camB);
+    area.appendChild(card);
+    requestAnimationFrame(() => drawPxCanvas(t.id, rA, camA));
+  });
+}
+
+function buildCard(t, rA, rB, camA, camB) {
+  const u = ul();
+  const distRaw = fromM(t.useGlobal ? S.gdistM : t.distM);
+
+  const div = document.createElement('div');
+  div.className = 'tcard';
+  div.id = `card-${t.id}`;
+
+  div.innerHTML = `
+    <div class="tcard-hdr">
+      <span class="tcard-icon">${t.icon}</span>
+      <span class="tcard-name">${t.label}</span>
+      <span class="badge ${rA.badge}">${rA.bLabel} (RGB)</span>
+      <span class="badge ${rB.badge}" style="margin-left:4px">${rB.bLabel} (THML)</span>
+      <button class="rmbtn" onclick="removeTarget(${t.id})">×</button>
+    </div>
+    <div class="tcard-body">
+      <div class="tcard-left">
+        <div class="gchk">
+          <input type="checkbox" id="chk-${t.id}" ${t.useGlobal?'checked':''} onchange="onGlobal(${t.id},this.checked)">
+          <label for="chk-${t.id}">USE GLOBAL DISTANCE <span class="glbl">(${fmtM(S.gdistM)} ${u})</span></label>
+        </div>
+        <div class="dimrow">
+          <div class="dimg">
+            <div class="diml">WIDTH</div>
+            <div class="dimif">
+              <input class="dimi" type="number" value="${t.wm.toFixed(2)}" min=".01" step=".01" onchange="onDim(${t.id},'wm',this.value)">
+              <div class="dimu">m</div>
+            </div>
+          </div>
+          <div class="dimg">
+            <div class="diml">HEIGHT</div>
+            <div class="dimif">
+              <input class="dimi" type="number" value="${t.hm.toFixed(2)}" min=".01" step=".01" onchange="onDim(${t.id},'hm',this.value)">
+              <div class="dimu">m</div>
+            </div>
+          </div>
+          <div class="dimg">
+            <div class="diml">DIST (<span style="text-transform:none">${u}</span>)</div>
+            <div class="dimif">
+              <input class="dimi" type="number" id="dist-${t.id}" value="${distRaw.toFixed(1)}" min="0" step="1"
+                ${t.useGlobal?'disabled':''} onchange="onDistTarget(${t.id},this.value)">
+              <div class="dimu">${u}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pxrow">
+          <span class="pxs">RGB PX ON TARGET <b>${rA.pxW.toFixed(1)} × ${rA.pxH.toFixed(1)}</b></span>
+          <span class="pxs" style="border-left: 1px solid var(--si2); padding-left: 15px">THML PX ON TARGET <b>${rB.pxW.toFixed(1)} × ${rB.pxH.toFixed(1)}</b></span>
+        </div>
+
+        <!-- RGB bars -->
+        <div class="bars-section">
+          <div class="bars-cam-lbl rgb">RGB ANALYSIS</div>
+          <div class="bars" style="margin-top:5px">
+            ${barRow('det','DETECTION',rA.detM,rA.detM,distRaw,'det')}
+            ${barRow('rec','RECOGNITION',rA.recM,rA.detM,distRaw,'rec')}
+            ${barRow('idt','IDENTIFICATION',rA.idtM,rA.detM,distRaw,'idt')}
+          </div>
+        </div>
+
+        <!-- Thermal bars -->
+        <div class="bars-section">
+          <div class="bars-cam-lbl thm">THERMAL ANALYSIS</div>
+          <div class="bars" style="margin-top:5px">
+            ${barRowThm('DETECTION',rB.detM,rB.detM,distRaw,'thm-det')}
+            ${barRowThm('RECOGNITION',rB.recM,rB.detM,distRaw,'thm-rec')}
+            ${barRowThm('IDENTIFICATION',rB.idtM,rB.detM,distRaw,'thm-idt')}
+          </div>
+        </div>
+
+        <!-- FOV analysis (RGB) -->
+        <div>
+          <div class="fova-ttl">FOV ANALYSIS — RGB (${camA.rh}×${camA.rv})</div>
+          <div class="fovgrid">
+            <div class="fovc"><div class="fovk">SCREEN W</div><div class="fovv">${rA.scrW.toFixed(2)}%</div></div>
+            <div class="fovc"><div class="fovk">SCREEN H</div><div class="fovv">${rA.scrH.toFixed(2)}%</div></div>
+            <div class="fovc"><div class="fovk">PX DENSITY</div><div class="fovv">${rA.pxDens>0?rA.pxDens.toFixed(0)+'/m²':'—'}</div></div>
+            <div class="fovc"><div class="fovk">TGT/FOV W</div><div class="fovv">${rA.fovH>0?(t.wm/rA.fovH*100).toFixed(2)+'%':'—'}</div></div>
+            <div class="fovc"><div class="fovk">TGT/FOV H</div><div class="fovv">${rA.fovV>0?(t.hm/rA.fovV*100).toFixed(2)+'%':'—'}</div></div>
+            <div class="fovc"><div class="fovk">FOV AREA</div><div class="fovv">${rA.fovArea.toFixed(3)}%</div></div>
+          </div>
+        </div>
+
+      </div>
+      <div class="tcard-px" id="pxwrap-${t.id}">
+        <canvas id="pxc-${t.id}"></canvas>
+        <div class="px-res">${camA.rh}×${camA.rv}</div>
+        <div class="px-ct" id="pxct-${t.id}">—</div>
+        <div class="px-sc">${t.hm.toFixed(1)}m (H)</div>
+      </div>
+    </div>`;
+  return div;
+}
+
+function barRow(cls, label, valM, maxM, distRaw, fillCls) {
+  const pct = (isFinite(maxM)&&maxM>0) ? Math.min(100,fromM(valM)/fromM(maxM)*100).toFixed(1) : '0';
+  const dp  = (isFinite(maxM)&&maxM>0) ? Math.min(100,distRaw/fromM(maxM)*100).toFixed(1) : '0';
+  return `<div class="brow">
+    <div class="blbl ${cls}">${label}</div>
+    <div class="btrack"><div class="bfill ${fillCls}" style="width:${pct}%"></div><div class="bdist" style="left:${dp}%"></div></div>
+    <div class="bval">${fmtM(valM)} ${ul()}</div>
+  </div>`;
+}
+
+function barRowThm(label, valM, maxM, distRaw, fillCls) {
+  const pct = (isFinite(maxM)&&maxM>0) ? Math.min(100,fromM(valM)/fromM(maxM)*100).toFixed(1) : '0';
+  const dp  = (isFinite(maxM)&&maxM>0) ? Math.min(100,distRaw/fromM(maxM)*100).toFixed(1) : '0';
+  const w   = fillCls === 'thm-det' ? '100' : pct;
+  return `<div class="brow">
+    <div class="blbl" style="color:var(--thm);opacity:.8">${label}</div>
+    <div class="btrack"><div class="bfill ${fillCls}" style="width:${w}%"></div><div class="bdist" style="left:${dp}%"></div></div>
+    <div class="bval" style="color:var(--tp)">${fmtM(valM)} ${ul()}</div>
+  </div>`;
+}
+
+function drawPxCanvas(id, r, cam) {
+  const wrap = document.getElementById(`pxwrap-${id}`);
+  const canvas = document.getElementById(`pxc-${id}`);
+  if (!wrap || !canvas) return;
+  const W = wrap.clientWidth || 200, H = wrap.clientHeight || 150;
+  canvas.width = W; canvas.height = H;
+  canvas.style.cssText = `width:${W}px;height:${H}px`;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#050505';
+  ctx.fillRect(0,0,W,H);
+  if (r.pxH <= 0 || !isFinite(r.pxH)) { document.getElementById(`pxct-${id}`).textContent='—'; return; }
+  const scX = W/cam.rh, scY = H/cam.rv;
+  const rW = Math.min(r.pxW*scX, W), rH = Math.min(r.pxH*scY, H);
+  const rx = (W-rW)/2, ry = (H-rH)/2;
+  ctx.fillStyle = 'rgba(50,220,100,0.8)';
+  ctx.fillRect(rx,ry,rW,rH);
+  ctx.strokeStyle = 'rgba(50,220,100,1)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(rx,ry,rW,rH);
+  ctx.setLineDash([3,4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(rx+rW/2,ry); ctx.lineTo(rx+rW/2,ry+rH);
+  ctx.moveTo(rx,ry+rH/2); ctx.lineTo(rx+rW,ry+rH/2);
+  ctx.stroke(); ctx.setLineDash([]);
+  document.getElementById(`pxct-${id}`).textContent = `${Math.round(r.pxW)}×${Math.round(r.pxH)} px`;
+}
+
+// ═══════════════════════════════════════════════════
+//  EVENT HANDLERS
+// ═══════════════════════════════════════════════════
+function setCycInputs() {
+  const pf = probFactor(S.prob);
+  document.getElementById('cyc-det').value = (S.cycBase.det * pf).toFixed(1);
+  document.getElementById('cyc-rec').value = (S.cycBase.rec * pf).toFixed(1);
+  document.getElementById('cyc-idt').value = (S.cycBase.idt * pf).toFixed(1);
+  const lbl = document.getElementById('cyc-base-lbl');
+  lbl.textContent = '';
+}
+
+function setProb(p) {
+  S.prob = p;
+  document.querySelectorAll('[data-prob]').forEach(b => b.classList.toggle('on', +b.dataset.prob === p));
+  setCycInputs();
+  renderAll();
+}
+
+function onCycBase(key, val) {
+  const pf = probFactor(S.prob);
+  S.cycBase[key] = (parseFloat(val) || 1) / pf;
+  const lbl = document.getElementById('cyc-base-lbl');
+  if (S.prob !== 0.5) {
+    lbl.textContent = `N₅₀: ${S.cycBase.det.toFixed(1)} / ${S.cycBase.rec.toFixed(1)} / ${S.cycBase.idt.toFixed(1)}`;
+  }
+  renderAll();
+}
+
+function setUnit(u) {
+  S.unit = u;
+  document.querySelectorAll('.ubtn').forEach(b => b.classList.toggle('on', b.dataset.u === u));
+  document.getElementById('dist-lbl').textContent = `Distance (${ul()})`;
+  document.getElementById('dist-utag').textContent = ul();
+  document.getElementById('gdist-inp').value = fromM(S.gdistM).toFixed(u==='nm'?3:0);
+  const cfg = UCFG[u];
+  document.getElementById('gdist-sldr').max = cfg.slMax;
+  document.getElementById('gdist-sldr').value = fromM(S.gdistM);
+  ['st0','st1','st2','st3'].forEach((id,i)=>document.getElementById(id).textContent=cfg.ticks[i]);
+  renderAll();
+}
+
+function setPreset(cam, key, btn) {
+  const cfg = cam === 'A' ? S.camA : S.camB;
+  cfg.preset = key;
+  const group = cam === 'A' ? 'rgb' : 'thm';
+  btn.closest('.sbs').querySelectorAll('.pbtn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on', group);
+
+  const isCustom = key === 'opt_custom' || key === 'thm_custom';
+  const p = isCustom ? null : CAM_PRESETS[key];
+  const hasLenses = p?.lenses?.length > 0;
+
+  document.getElementById(`cust${cam}`).classList.toggle('hidden', !isCustom);
+  if (cam === 'B') document.getElementById('lensB').classList.toggle('hidden', !hasLenses);
+
+  if (hasLenses) {
+    const sel = document.getElementById(`lens${cam}-sel`);
+    sel.innerHTML = p.lenses.map(f => `<option value="${f}">${f} mm</option>`).join('');
+    const focal = p.lenses[0];
+    cfg.focalMm = focal;
+    document.getElementById(`focal${cam}-inp`).value = focal;
+  } else if (isCustom) {
+    if (cfg.mode === 'focal') {
+      cfg.focalMm = cfg.custom.focal;
+      document.getElementById(`focal${cam}-inp`).value = cfg.custom.focal;
+    }
+  } else {
+    if (cfg.mode === 'focal') {
+      cfg.focalMm = p.focal;
+      document.getElementById(`focal${cam}-inp`).value = p.focal;
+    }
+  }
+  onCam(cam);
+}
+
+function onLens(cam) {
+  const cfg = cam === 'A' ? S.camA : S.camB;
+  const focal = parseFloat(document.getElementById(`lens${cam}-sel`).value);
+  cfg.focalMm = focal;
+  document.getElementById(`focal${cam}-inp`).value = focal;
+  renderAll();
+}
+
+function onCustom(cam) {
+  const cfg = cam === 'A' ? S.camA : S.camB;
+  const pfx = `cust${cam}`;
+  cfg.custom.rh     = parseInt(document.getElementById(`${pfx}-rh`).value)   || 1920;
+  cfg.custom.rv     = parseInt(document.getElementById(`${pfx}-rv`).value)   || 1080;
+  cfg.custom.pxSzUm = parseFloat(document.getElementById(`${pfx}-px`).value) || 1.45;
+  cfg.custom.focal  = parseFloat(document.getElementById(`${pfx}-fl`).value) || 8;
+  cfg.custom.fnum   = parseFloat(document.getElementById(`${pfx}-fn`).value) || 2.8;
+  renderAll();
+}
+
+function setMode(cam, m) {
+  const cfg = cam === 'A' ? S.camA : S.camB;
+  cfg.mode = m;
+  document.getElementById(`mb${cam}-focal`).classList.toggle('on', m==='focal');
+  document.getElementById(`mb${cam}-hfov`).classList.toggle('on',  m==='hfov');
+  document.getElementById(`focal${cam}`).classList.toggle('hidden', m!=='focal');
+  document.getElementById(`hfov${cam}`).classList.toggle('hidden',  m!=='hfov');
+  onCam(cam);
+}
+
+function onCam(cam) {
+  const cfg = cam === 'A' ? S.camA : S.camB;
+  if (cfg.mode==='focal') {
+    cfg.focalMm = parseFloat(document.getElementById(`focal${cam}-inp`).value)||4;
+  } else {
+    cfg.hfovDeg = parseFloat(document.getElementById(`hfov${cam}-inp`).value)||50;
+  }
+  renderAll();
+}
+
+function onDist() {
+  S.gdistM = toM(parseFloat(document.getElementById('gdist-inp').value)||0);
+  document.getElementById('gdist-sldr').value = fromM(S.gdistM);
+  renderAll();
+}
+
+function onSlider() {
+  const raw = parseFloat(document.getElementById('gdist-sldr').value)||0;
+  S.gdistM = toM(raw);
+  document.getElementById('gdist-inp').value = raw.toFixed(S.unit==='nm'?3:0);
+  renderAll();
+}
+
+function resetNato() {
+  S.cycBase = { det:1, rec:3, idt:6 };
+  S.prob = 0.5;
+  document.querySelectorAll('[data-prob]').forEach(b => b.classList.toggle('on', +b.dataset.prob === 0.5));
+  setCycInputs();
+  renderAll();
+}
+
+function addTarget(type) {
+  const def = TDEFS[type];
+  S.targets.push({ id:S.nextId++, type, label:def.label, icon:def.icon,
+    wm:def.wm, hm:def.hm, useGlobal:true, distM:S.gdistM });
+  renderAll();
+}
+
+function removeTarget(id) {
+  S.targets = S.targets.filter(t=>t.id!==id);
+  renderAll();
+}
+
+function onGlobal(id, checked) {
+  const t = S.targets.find(t=>t.id===id);
+  if (!t) return;
+  t.useGlobal = checked;
+  const el = document.getElementById(`dist-${id}`);
+  if (el) el.disabled = checked;
+  renderAll();
+}
+
+function onDim(id, field, val) {
+  const t = S.targets.find(t=>t.id===id);
+  if (t) { t[field] = Math.max(0.001, parseFloat(val)||0); renderAll(); }
+}
+
+function onDistTarget(id, val) {
+  const t = S.targets.find(t=>t.id===id);
+  if (t) { t.distM = toM(parseFloat(val)||0); renderAll(); }
+}
+
+// ── INIT ──
+window.addEventListener('resize', renderAll);
+(function init() {
+  // Lens dropdown for default thermal preset
+  const p = CAM_PRESETS[S.camB.preset];
+  if (p?.lenses?.length) {
+    const sel = document.getElementById('lensB-sel');
+    sel.innerHTML = p.lenses.map(f => `<option value="${f}">${f} mm</option>`).join('');
+    document.getElementById('lensB').classList.remove('hidden');
+  }
+  // Apply default probability to cycle inputs
+  setCycInputs();
+  // Apply default unit to distance UI
+  const cfg = UCFG[S.unit];
+  document.getElementById('dist-lbl').textContent = `Distance (${ul()})`;
+  document.getElementById('dist-utag').textContent = ul();
+  document.getElementById('gdist-inp').value = fromM(S.gdistM).toFixed(0);
+  document.getElementById('gdist-sldr').max = cfg.slMax;
+  document.getElementById('gdist-sldr').value = fromM(S.gdistM);
+  ['st0','st1','st2','st3'].forEach((id,i) => document.getElementById(id).textContent = cfg.ticks[i]);
+})();
+renderAll();
+</script>
+</body>
+</html>
