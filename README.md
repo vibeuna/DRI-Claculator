@@ -24,4 +24,4 @@ This project is a single-file application. Open the html file in any browser.
 
 ## 📄 License
 
-This project is intended for professional engineering and visualization purposes.
+Feel free to use and adapt this for your own engineering needs. Double check the math!
