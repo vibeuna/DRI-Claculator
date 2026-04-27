@@ -2,7 +2,8 @@
 
 A high-fidelity, technical web application for calculating **Detection, Recognition, and Identification (DRI)** ranges based on Johnson's Criteria. Designed with a premium, "authoritative" aesthetic for defense and engineering applications.
 
-🚀 **[Open the App](https://vibeuna.github.io/DRIcalculator/)**
+🚀 **[Open the App](https://vibeuna.github.io/DRI-calculator/)**
+
 
 ## ✨ Features
 
