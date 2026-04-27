@@ -20,7 +20,7 @@ A high-fidelity, technical web application for calculating **Detection, Recognit
 
 ## 🚀 Deployment
 
-This project is a single-file application. You can host it directly on GitHub Pages.
+This project is a single-file application. Open the html file in any browser.
 
 ## 📄 License
 
