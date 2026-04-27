@@ -2,7 +2,9 @@
 
 A high-fidelity, technical web application for calculating **Detection, Recognition, and Identification (DRI)** ranges based on Johnson's Criteria. Designed with a premium, "authoritative" aesthetic for defense and engineering applications.
 
-## 🎯 Key Features
+🚀 **[Open the App](https://vibeuna.github.io/DRIcalculator/)**
+
+## ✨ Features
 
 - **Dual-Camera Comparison**: Side-by-side analysis of RGB and Thermal (LWIR) sensor performance.
 - **Dynamic FOV Visualization**: Interactive SVG-based field-of-view visualization with technical grid overlays.
